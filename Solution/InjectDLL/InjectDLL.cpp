@@ -4,8 +4,16 @@
 #define __EXIT(ret, errinfo, ...) do {printf("%s\n", errinfo); __VA_ARGS__; return ret;} while(0)
 
 int main(int argc, char* argv[]) {
+    if (argc <= 2) __EXIT(-1, "help: injectdll.exe pid /path/to/a.dll\n");
+
     DWORD dwProcId = atoi(argv[1]);
     WCHAR* sDllPath = (WCHAR*)argv[2];
+
+    if (!dwProcId || !sDllPath) __EXIT(-1, "bad params!");
+
+    // 判断dll是否存在
+    DWORD dwAttr = GetFileAttributesW(sDllPath);
+    if (dwAttr == INVALID_FILE_ATTRIBUTES) __EXIT(-1, "fail to get dll file atrributes");
 
     // 打开已经存在的目标进程，赋予本进程操作目标进程的权限
     HANDLE hRmtProc = OpenProcess(
