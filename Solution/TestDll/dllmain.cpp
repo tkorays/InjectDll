@@ -8,6 +8,7 @@ int fnTargetExeDepReplace() {
     return 0;
 }
 
+uintptr_t* p2;
 // 用于改变函数地址
 void __ReplaceFunc() {
     printf("start replace\n");
@@ -22,7 +23,7 @@ void __ReplaceFunc() {
         printf("fail to get fnTargetExeDep's address in module %p\n", hTargetExeDepDll);
         return;
     }
-    uintptr_t* p2 = (uintptr_t*)fnTargetExeDepReplace;
+    p2 = (uintptr_t*)fnTargetExeDepReplace;
     uintptr_t** p3 = &p2;
 
     HANDLE hProc = OpenProcess(PROCESS_QUERY_INFORMATION |
@@ -35,19 +36,14 @@ void __ReplaceFunc() {
         printf("can not get cur proc\n");
         return;
     }
-    printf("%lu\n", __LINE__);
     DWORD oldProtect;
-    VirtualProtectEx(hProc, p1, 6, PAGE_READWRITE | PAGE_EXECUTE, &oldProtect);
+    VirtualProtectEx(hProc, p1, 6, PAGE_EXECUTE_READWRITE, &oldProtect);
 
     // jmp to new address
     *(unsigned char*)p1 = 0xff;
-    printf("%lu\n", __LINE__);
     *(((unsigned char*)p1) + 1) = 0x25;
-    printf("%lu\n", __LINE__);
-    memcpy_s(p2, 4, (unsigned char*)&p3 + 2, sizeof(uintptr_t));
-    printf("%lu\n", __LINE__);
-    DWORD tmp;
-    VirtualProtectEx(hProc, p1, 6, oldProtect, &tmp);
+    memcpy_s(((unsigned char*)p1) + 2, 4, (unsigned char*)&p3, sizeof(uintptr_t));
+    VirtualProtectEx(hProc, p1, 6, oldProtect, NULL);
     printf("replace success!");
     CloseHandle(hProc);
 }
@@ -79,7 +75,7 @@ BOOL APIENTRY DllMain( HMODULE  ,
     {
         MessageBox(NULL, TEXT("process attach"), TEXT("hack"), MB_OK);
     }
-		break;
+	break;
 	}
 	return TRUE;
 }
