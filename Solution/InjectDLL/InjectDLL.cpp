@@ -27,7 +27,8 @@ int main(int argc, char* argv[]) {
     DWORD dwProcId = GetPidByProcName(argv[1]);
     CHAR* sDllPath = (CHAR*)argv[2];
 
-    if (!dwProcId || !sDllPath) __EXIT(-1, "bad params!");
+    if (!dwProcId) __EXIT(-1, "process is not existed!\n");
+    if (!sDllPath) __EXIT(-1, "bad params!");
 
     // ≈–∂œdll «∑Ò¥Ê‘⁄
     DWORD dwAttr = GetFileAttributesA(sDllPath);
