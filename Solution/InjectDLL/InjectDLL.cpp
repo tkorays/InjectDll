@@ -1,12 +1,30 @@
+#ifdef UNICODE
+#undef UNICODE
+#endif
 #include <stdio.h>
 #include <Windows.h>
+#include <TlHelp32.h>
 
 #define __EXIT(ret, errinfo, ...) do {printf("%s\n", errinfo); __VA_ARGS__; return ret;} while(0)
 
-int main(int argc, char* argv[]) {
-    if (argc <= 2) __EXIT(-1, "help: injectdll.exe pid /path/to/a.dll\n");
+// 根据进程名获取进程id
+DWORD GetPidByProcName(CHAR* procName) {
+    if (!procName) return NULL;
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) return 0;
+    PROCESSENTRY32 pe = { sizeof(pe) };
+    for (BOOL bRet = Process32First(hSnapshot, &pe); bRet; bRet = Process32Next(hSnapshot, &pe)) {
+        if (strcmp(pe.szExeFile, procName) == 0) {
+            return pe.th32ProcessID;
+        }
+    }
+    return 0;
+}
 
-    DWORD dwProcId = atoi(argv[1]);
+int main(int argc, char* argv[]) {
+    if (argc <= 2) __EXIT(-1, "help: injectdll.exe proc.exe /path/to/a.dll\n");
+
+    DWORD dwProcId = GetPidByProcName(argv[1]);
     CHAR* sDllPath = (CHAR*)argv[2];
 
     if (!dwProcId || !sDllPath) __EXIT(-1, "bad params!");
@@ -55,6 +73,8 @@ int main(int argc, char* argv[]) {
         VirtualFreeEx(hRmtProc, pDllPath, 0, MEM_RELEASE);
         CloseHandle(hRmtProc);
     });
+
+    // TODO: 后续可以插入命令行操作
 
     if (WAIT_OBJECT_0 != WaitForSingleObject(hNewThread, INFINITE)) __EXIT(-1, "fail to wait");
 

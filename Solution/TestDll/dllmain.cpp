@@ -1,58 +1,39 @@
 // dllmain.cpp : 定义 DLL 应用程序的入口点。
 #include "stdafx.h"
+#include "InjectHelper.h"
 
-uintptr_t* p1;
-uintptr_t* p2;
-UCHAR oldCode[6] = { 0 };
+HookManager hm;
+
 
 // 这个是我们要替换的函数，目的是要把它变成我们自己的函数调用 
 typedef int (*FnTargetExeDep)(void);
 int fnTargetExeDepReplace() {
+    
     printf("From TestDll, inject success!\n");
+
+    hm.unhook(fnTargetExeDepReplace);
+    ((FnTargetExeDep)hm.getorg(fnTargetExeDepReplace))();
+    hm.hook(fnTargetExeDepReplace);
     return 0;
 }
-
-
 // 用于改变函数地址
 void __ReplaceFunc() {
-    printf("start replace\n");
     HMODULE hTargetExeDepDll = GetModuleHandle(TEXT("TargetExeDep"));
     if (!hTargetExeDepDll) {
         printf("fail to get TargetExeDep.dll HANDLE\n");
         return;
     }
 
-    p1 = (uintptr_t*)GetProcAddress(hTargetExeDepDll, "fnTargetExeDep");
+    LPVOID p1 = GetProcAddress(hTargetExeDepDll, "fnTargetExeDep");
     if (!p1) {
         printf("fail to get fnTargetExeDep's address in module %p\n", hTargetExeDepDll);
         return;
     }
-    p2 = (uintptr_t*)fnTargetExeDepReplace;
-    uintptr_t** p3 = &p2;
-
-    HANDLE hProc = OpenProcess(PROCESS_QUERY_INFORMATION |
-        PROCESS_CREATE_THREAD |
-        PROCESS_VM_OPERATION |
-        PROCESS_VM_WRITE,
-        FALSE,
-        GetCurrentProcessId());
-    if (INVALID_HANDLE_VALUE == hProc) {
-        printf("can not get cur proc\n");
-        return;
-    }
-    DWORD oldProtect;
-    VirtualProtectEx(hProc, p1, 6, PAGE_EXECUTE_READWRITE, &oldProtect);
-
-    memcpy_s(oldCode, 6, p1, 6);
-
-    // jmp to new address
-    *(unsigned char*)p1 = 0xff;
-    *(((unsigned char*)p1) + 1) = 0x25;
-    memcpy_s(((unsigned char*)p1) + 2, 4, (unsigned char*)&p3, sizeof(uintptr_t));
-    //VirtualProtectEx(hProc, p1, 6, oldProtect, NULL);
-    printf("replace success!");
-    //CloseHandle(hProc);
+    BOOL ret = hm.setup();
+    hm.add(p1, fnTargetExeDepReplace);
+    printf("%u\n", sizeof(hm.hooks[0].stOldCode));
 }
+
 
 BOOL APIENTRY DllMain( HMODULE  ,
                        DWORD  ul_reason_for_call,
@@ -79,7 +60,7 @@ BOOL APIENTRY DllMain( HMODULE  ,
     break;
 	case DLL_PROCESS_DETACH:
     {
-        MessageBox(NULL, TEXT("process attach"), TEXT("hack"), MB_OK);
+        MessageBox(NULL, TEXT("process deattach"), TEXT("hack"), MB_OK);
     }
 	break;
 	}
